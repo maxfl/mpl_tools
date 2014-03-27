@@ -46,8 +46,9 @@ def contour_graph2d( graph, shape, *args, **kwargs ):
     chi2levels, v = pop_existing( kwargs,  'chi2levels', 'v'  )
     if chi2levels:
         v = chi2_v( chi2levels, z.min() )
+        return plt.contour( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
 
-    return plt.contour( x, y, z, v=v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
+    return plt.contour( x, y, z, *args, **kwargs ), dict( x=x, y=y, z=z, v=None )
 ##end def contour_graph2d
 
 def contourf_graph2d( graph, shape, *args, **kwargs ):
@@ -58,8 +59,9 @@ def contourf_graph2d( graph, shape, *args, **kwargs ):
     chi2levels, v = pop_existing( kwargs,  'chi2levels', 'v'  )
     if chi2levels:
         v = chi2_v( chi2levels, z.min() )
+        return plt.contourf( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
 
-    return plt.contourf( x, y, z, v=v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
+    return plt.contourf( x, y, z, *args, **kwargs ), dict( x=x, y=y, z=z, v=None )
 ##en##end def contour_graph2d
 
 def plot_surface_graph2d( graph, shape, *args, **kwargs ):
