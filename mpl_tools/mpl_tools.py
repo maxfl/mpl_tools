@@ -21,10 +21,32 @@ def pop_existing( d, *args ):
 def savefig( name, *args, **kwargs ):
     """Save fig and print output filename"""
     if not name: return
-    from pylab import savefig
-    savefig( name, *args, **kwargs )
+    suffix, = pop_existing( kwargs, 'suffix' )
+    if suffix!=None:
+        from os.path import splitext
+        basename, ext = splitext( name )
+        name = basename+suffix+ext
+
+    plt.savefig( name, *args, **kwargs )
     print( 'Save figure', name )
 ##end def savefig
+
+def add_to_labeled( o, l ):
+    ocurrent, lcurrent = ax.get_legend_handles_labels()
+    ocurrent.append( o )
+    lcurrent.append( l )
+
+def legend_ext( before=[[],[]], after=[[],[]], ax=None, **kwargs ):
+    alpha, = pop_existing( kwargs, 'alpha' )
+    ax = ax or plt.gca()
+
+    obefore, lbefore = before
+    oafter, lafter = after
+    ocurrent, lcurrent = ax.get_legend_handles_labels()
+    leg = ax.legend( obefore+ocurrent+oafter, lbefore+lcurrent+lafter, **kwargs )
+    if alpha!=None:
+        leg.get_frame().set_alpha( alpha )
+    return leg
 
 def set_title( t ):
     """Set window title"""
@@ -34,10 +56,12 @@ def set_title( t ):
 
 def plot_hist( lims, height, *args, **kwargs ):
     """Plot histogram with lines. Like bar(), but without lines between bars."""
+    zero_value, = pop_existing( kwargs, 'zero_value' )
+    if zero_value==None:
+        zero_value = 0.0
     y = numpy.empty( len(height)*2+2 )
+    y[0], y[-1]=zero_value, zero_value
     y[1:-1] = numpy.vstack( ( height, height ) ).ravel( order='F' )
-    y[0]=0.0
-    y[-1]=0.0
     x = numpy.vstack( ( lims, lims ) ).ravel( order='F' )
 
     from pylab import plot
@@ -46,11 +70,27 @@ def plot_hist( lims, height, *args, **kwargs ):
 
 def fill_between_hists( lims, hlower, hupper, *args, **kwargs ):
     """Plot histogram with lines. Like bar(), but without lines between bars."""
+    label, = pop_existing( kwargs, 'label' )
     from numpy import ravel, empty, vstack
-    yl = vstack( ( hlower, hlower ) ).ravel( order='F' )
-    yu = vstack( ( hupper, hupper ) ).ravel( order='F' )
+    if type(hlower)==float:
+        yl = hlower
+    else:
+        yl = vstack( ( hlower, hlower ) ).ravel( order='F' )
+    if type(hupper)==float:
+        yu = hupper
+    else:
+        yu = vstack( ( hupper, hupper ) ).ravel( order='F' )
     x = vstack( ( lims[:-1], lims[1:] ) ).ravel( order='F' )
 
+    if label:
+        p = plt.Rectangle((0, 0), 0, 0, label=label, **kwargs)
+        ax = plt.gca()
+        ax.add_patch(p)
+
+    #print( x.shape,  x )
+    #print( kwargs )
+    #print( yl.shape if type(yl)!=float else 1, yl )
+    #print( yu.shape, yu )
     return plt.fill_between( x, yl, yu, *args, **kwargs )
 ##end def plot_hist
 
@@ -132,4 +172,34 @@ def drawFun( f, x, *args, **kwargs ):
     from pylab import plot
     return plot( x, fun(x), *args, **kwargs )
 ##end def drawFun
+
+def plot_table( text, loc=1, *args, **kwargs ):
+    if type(text)==list:
+        text = '\n'.join( text )
+
+    from mpl_toolkits.axes_grid.anchored_artists import AnchoredText
+    # if bbox==None: bbox = dict(facecolor='white', alpha=1)
+    if type(loc)==str:
+        loc = {
+            'upper right'  :    1
+          , 'upper left'   :    2
+          , 'lower left'   :    3
+          , 'lower right'  :    4
+          , 'right'        :    5
+          , 'center left'  :    6
+          , 'center right' :    7
+          , 'lower center' :    8
+          , 'upper center' :    9
+          , 'center'       :    10
+        }[loc]
+    ##end if
+    prop, = pop_existing( kwargs, 'prop' )
+    prop = prop or {}
+    at = AnchoredText( text, loc, *args, prop=prop, **kwargs )
+
+    from matplotlib import pyplot as plt
+    ax = plt.gca()
+    ax.add_artist( at )
+    return at
+##end def plot_stats
 

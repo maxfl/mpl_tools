@@ -5,6 +5,8 @@ from __future__ import print_function
 import ROOT, r2numpy, numpy
 from mpl_tools import *
 from matplotlib import pyplot as plt
+import numpy as np
+import itertools
 
 def plot_graph( g, *args, **kwargs ):
     """Plot TGraph"""
@@ -49,6 +51,36 @@ def contour_graph2d( graph, shape, *args, **kwargs ):
         return plt.contour( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
 
     return plt.contour( x, y, z, *args, **kwargs ), dict( x=x, y=y, z=z, v=None )
+##end def contour_graph2d
+
+def contour_hist2( hist, *args, **kwargs ):
+    z = r2numpy.get_buffer_hist2( hist )
+    X = r2numpy.get_bin_centers_axis( hist.GetXaxis() )
+    Y = r2numpy.get_bin_centers_axis( hist.GetYaxis() )
+
+    x, y = np.meshgrid( X, Y )
+
+    chi2levels, v = pop_existing( kwargs,  'chi2levels', 'v'  )
+    if chi2levels:
+        v = chi2_v( chi2levels, z.min() )
+        return plt.contour( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
+
+    return plt.contour( x, y, z, *args, **kwargs ), dict( x=x, y=y, z=z, v=None )
+##end def contour_graph2d
+
+def contourf_hist2( hist, *args, **kwargs ):
+    z = r2numpy.get_buffer_hist2( hist )
+    X = r2numpy.get_bin_centers_axis( hist.GetXaxis() )
+    Y = r2numpy.get_bin_centers_axis( hist.GetYaxis() )
+
+    x, y = np.meshgrid( X, Y )
+
+    chi2levels, v = pop_existing( kwargs,  'chi2levels', 'v'  )
+    if chi2levels:
+        v = chi2_v( chi2levels, z.min() )
+        return plt.contourf( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
+
+    return plt.contourf( x, y, z, *args, **kwargs ), dict( x=x, y=y, z=z, v=None )
 ##end def contour_graph2d
 
 def contourf_graph2d( graph, shape, *args, **kwargs ):
@@ -125,7 +157,7 @@ def errorbar_hist1( h, *args, **kwargs ):
     if not 'fmt' in kwargs: kwargs['fmt']=None
     from matplotlib.pyplot import errorbar
     from numpy import sqrt
-    return errorbar( centers, height, yerr, hwidths, *args, **kwargs )
+    return centers, height, errorbar( centers, height, yerr, hwidths, *args, **kwargs )
 ##end plot_bar_hist1
 
 def plot_hist1( h, *args, **kwargs ):
@@ -135,14 +167,36 @@ def plot_hist1( h, *args, **kwargs ):
     return plot_hist( lims, height, *args, **kwargs )
 ##end plot_bar_hist1
 
+def plot_stack_hist1( hists, *args, **kwargs ):
+    """Plot 1-dimensinal histogram using pyplot.plot"""
+    zero_value, colors, labels, zorder = pop_existing( kwargs, 'zero_value', 'colors', 'labels', 'zorder' )
+    if zero_value==None:
+        zero_value = 0.0
+    if not labels:
+        labels = []
+    if type(zorder)!=list:
+        zorder=[ zorder ]
+    colors = colors or 'rgbcmy'
+
+    previous = zero_value
+    ret = []
+    for h, color, label, z in itertools.izip( hists, itertools.cycle( colors ), itertools.cycle( labels ), itertools.cycle( zorder ) ):
+        lims=r2numpy.get_bin_edges_axis( h.GetXaxis() )
+        height=previous + r2numpy.get_buffer_hist1( h )
+        res = fill_between_hists( lims, previous, height, *args, color=color, label=label, zorder=z, **kwargs )
+        ret.append( res )
+        previous = height
+    return ret
+##end plot_bar_hist1
+
 def plot_centers_hist1( h, *args, **kwargs ):
     """Plot 1-dimensinal histogram using pyplot.plot"""
     mask, = pop_existing( kwargs, 'mask' )
     lims=r2numpy.get_bin_edges_axis(h.GetXaxis())
     x = r2numpy.get_bin_centers_axis( h.GetXaxis() )
     y = r2numpy.get_buffer_hist1( h )
-    if mask!=None: y = numpy.ma.array( y, mask=mask )
-    return plt.plot( x, y, *args, **kwargs )
+    if mask!=None: y = numpy.ma.array( y, mask=y==mask )
+    return x, y, plt.plot( x, y, *args, **kwargs )
 ##end plot_bar_hist1
 
 def plot_bar_hist1( h, *args, **kwargs ):
@@ -209,7 +263,7 @@ def get_stats_hist( hist, opt='nemr', definitions={} ):
             , 's' : [ hist.GetSkewness ]
             , 'S' : [ hist.GetSkewness, lambda: hist.GetSkewness(11) ]
             , 'i' : [ hist.Integral ]
-            , 'o' : [ lambda: hist.GetArray[hist.GetNbinsX()+1] ]
+            , 'o' : [ lambda: hist.GetArray()[hist.GetNbinsX()+1] ]
             , 'u' : [ lambda: hist.GetArray()[0] ]
             , 'r' : [ hist.GetRMS ]
             , 'R' : [ hist.GetRMS, lambda: hist.GetRMS(11) ]
@@ -363,7 +417,7 @@ def pcolor_matrix( m, *args, **kwargs ):
     mask, colz, limits = [ kwargs.pop(x) if x in kwargs else None for x in ['mask', 'colz', 'limits'] ]
     x, y = limits!=None and limits or ([ 0.0, m.GetNcols() ], [ 0.0, m.GetNrows() ])
 
-    buf = r2numpy.get_buffer_matrix( m )
+    buf = r2numpy.get_buffer_matrix( m ).copy()
     if mask!=None:
         from numpy import ma
         buf = ma.array( buf, mask = buf==mask )
@@ -389,7 +443,7 @@ def pcolor_mesh_matrix( h, xedges, yedges, *args, **kwargs ):
     x, y = meshgrid( xedges, yedges )
 
     # get buffer
-    buf = r2numpy.get_buffer_matrix( h,  )
+    buf = r2numpy.get_buffer_matrix( h ).copy()
 
     # plot
     from pylab import pcolormesh
@@ -571,12 +625,15 @@ def bind_functions():
     setattr( ROOT.TH1, 'plot_centers', plot_centers_hist1 )
     setattr( ROOT.TH1, 'plot_stats', plot_stats )
     setattr( ROOT.TH1, 'plot_date', plot_date )
+    setattr( ROOT.TH1, 'plot_stack', lambda s, *a, **k: plot_stack_hist1( self, *a, **k ) )
 
     setattr( ROOT.TH2, 'draw', pcolor_hist2 )
     setattr( ROOT.TH2, 'plot_diag', pcolor_diag_hist2 )
     setattr( ROOT.TH2, 'plot_mesh', pcolor_mesh_hist2 )
     setattr( ROOT.TH2, 'pcolorfast', pcolor_hist2 )
     setattr( ROOT.TH2, 'pcolormesh', pcolor_mesh_hist2 )
+    setattr( ROOT.TH2, 'contour', contour_hist2 )
+    setattr( ROOT.TH2, 'contourf', contourf_hist2 )
 
     setattr( ROOT.TMatrixD, 'plot_diag', plot_diag_matrix )
     setattr( ROOT.TMatrixD, 'pcolorfast', pcolor_matrix )
