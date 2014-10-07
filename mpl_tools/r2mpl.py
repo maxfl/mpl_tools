@@ -103,10 +103,7 @@ def plot_surface_graph2d( graph, shape, *args, **kwargs ):
 
     colorbar, = pop_existing( kwargs, 'colorbar' )
     res = plt.gca().plot_surface( x, y, z, *args, **kwargs )
-    if colorbar:
-        cbar = plt.colorbar( res )
-    else:
-        cbar = None
+    cbar = add_colorbar( res ) if colorbar else None
 
     return res, dict( x=x, y=y, z=z, colorbar=cbar )
 ##end def contour_graph2d
@@ -117,10 +114,7 @@ def plot_trisurf_graph2d( graph, *args, **kwargs ):
         return
     colorbar, = pop_existing( kwargs, 'colorbar' )
     res = plt.gca().plot_trisurf( x, y, z, *args, **kwargs )
-    if colorbar:
-        cbar = plt.colorbar( res )
-    else:
-        cbar = None
+    cbar = add_colorbar( res ) if colorbar else None
 
     return res, dict( x=x, y=y, z=z, colorbar=cbar )
 ##end def contour_graph2d
@@ -355,7 +349,7 @@ def plot_stats( self, opt='nemr', loc=1, definitions={}, *args, **kwargs ):
 
 def pcolor_mesh_hist2( h, *args, **kwargs ):
     """Plot TH2 using matplotlib.pcolormesh"""
-    mask, colz = [ kwargs.pop(x) if x in kwargs else None for x in ['mask', 'colz'] ]
+    mask, colz, colorbar = pop_existing( kwargs, 'mask', 'colz', 'colorbar' )
 
     # get bin edges first
     x1 = r2numpy.get_bin_edges_axis(h.GetXaxis())
@@ -373,17 +367,14 @@ def pcolor_mesh_hist2( h, *args, **kwargs ):
     # plot
     from pylab import pcolormesh
     res = pcolormesh( x, y, buf, *args, **kwargs )
-    if colz:
-        from pylab import colorbar
-        cbar = colorbar()
-        # return res, cbar
-    ##end if colz
+    cbar = add_colorbar( res ) if colz or colorbar else None
+
     return res
 ##end def pcolor_hist2
 
 def pcolor_hist2( h, *args, **kwargs ):
     """Plot TH2 using matplotlib.pcolorfast"""
-    mask, colz = [ kwargs.pop(x) if x in kwargs else None for x in ['mask', 'colz'] ]
+    mask, colz, colorbar = pop_existing( kwargs, 'mask', 'colz', 'colorbar' )
 
     # get bin edges first
     xax = h.GetXaxis()
@@ -403,18 +394,15 @@ def pcolor_hist2( h, *args, **kwargs ):
     from pylab import axes
     ax = axes()
     res = ax.pcolorfast( x, y, buf, *args, **kwargs )
-    if colz:
-        from pylab import gcf
-        cbar = gcf().colorbar( res )
-        # return res, cbar
-    ##end if colz
+    cbar = add_colorbar( res ) if colorbar or colz else None
 
     return res
 ##end def pcolor_hist2
 
 def pcolor_matrix( m, *args, **kwargs ):
     """Plot TMatrixD using matplotlib.pcolorfast"""
-    mask, colz, limits = [ kwargs.pop(x) if x in kwargs else None for x in ['mask', 'colz', 'limits'] ]
+    mask, colz, colorbar, limits = \
+        pop_existing( kwargs, 'mask', 'colz', 'colorbar', 'limits' )
     x, y = limits!=None and limits or ([ 0.0, m.GetNcols() ], [ 0.0, m.GetNrows() ])
 
     buf = r2numpy.get_buffer_matrix( m ).copy()
@@ -427,11 +415,9 @@ def pcolor_matrix( m, *args, **kwargs ):
     from pylab import axes
     ax = axes()
     res = ax.pcolorfast( x, y, buf, *args, **kwargs )
-    if colz:
-        from pylab import gcf
-        cbar = gcf().colorbar( res )
+    cbar = add_colorbar( res ) if colz or colorbar else None
+    if cbar:
         return res, cbar
-    ##end if colz
 
     return res
 ##end def pcolor_hist2

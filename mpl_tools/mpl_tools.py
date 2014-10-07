@@ -6,6 +6,17 @@ from matplotlib import pyplot as plt
 import numpy
 import scipy, scipy.stats
 
+def add_colorbar( colormapable ):
+    if not colormapable:
+        return None
+    ax = plt.gca()
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    cbar = plt.gcf().colorbar( colormapable, cax=cax )
+    plt.sca( ax )
+    return cbar
+##end add_colorbar
+
 def chi2_nsigma( nsigma, ndf ):
     return scipy.stats.chi2.ppf( scipy.stats.chi2.cdf( nsigma**2, 1), ndf )
 ##end def get_chi2_nsigma
