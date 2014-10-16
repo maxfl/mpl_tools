@@ -10,6 +10,7 @@ def add_colorbar( colormapable ):
     if not colormapable:
         return None
     ax = plt.gca()
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     cbar = plt.gcf().colorbar( colormapable, cax=cax )
