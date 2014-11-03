@@ -11,14 +11,14 @@ import itertools
 def plot_graph( g, *args, **kwargs ):
     """Plot TGraph"""
     from pylab import plot
-    x, y = r2numpy.get_buffers_graph( g )
+    x, y = r2numpy.get_buffers_graph( g ).copy()
     return plot( x, y, *args, **kwargs )
 ##end def
 
 def errorbar_graph( g, *args, **kwargs ):
     """Plot TGraphErrors"""
     from pylab import errorbar
-    x, y = g.get_buffers()
+    x, y = g.get_buffers().copy()
     ex, ey = g.get_err_buffers() #FIXME: where is it?
     from numpy import all
     ex = ex if all( ex!=0.0 ) else None
@@ -29,7 +29,7 @@ def errorbar_graph( g, *args, **kwargs ):
 def errorbar_graph_asymm( g, *args, **kwargs ):
     """Plot TGraphErrors"""
     from pylab import errorbar
-    x, y = g.get_buffers()
+    x, y = g.get_buffers().copy()
     exl, exh, eyl, eyh = g.get_err_buffers() #FIXME: where is it?
     from numpy import array
     ex = array( ( exl, exh ) )
@@ -41,7 +41,7 @@ def errorbar_graph_asymm( g, *args, **kwargs ):
 ##end def
 
 def contour_graph2d( graph, shape, *args, **kwargs ):
-    x, y, z = r2numpy.get_buffers_mat_graph2d( graph, shape )
+    x, y, z = r2numpy.get_buffers_mat_graph2d( graph, shape ).copy()
     if x==None:
         return
 
@@ -54,7 +54,7 @@ def contour_graph2d( graph, shape, *args, **kwargs ):
 ##end def contour_graph2d
 
 def contour_hist2( hist, *args, **kwargs ):
-    z = r2numpy.get_buffer_hist2( hist )
+    z = r2numpy.get_buffer_hist2( hist ).copy()
     X = r2numpy.get_bin_centers_axis( hist.GetXaxis() )
     Y = r2numpy.get_bin_centers_axis( hist.GetYaxis() )
 
@@ -84,7 +84,7 @@ def contourf_hist2( hist, *args, **kwargs ):
 ##end def contour_graph2d
 
 def contourf_graph2d( graph, shape, *args, **kwargs ):
-    x, y, z =r2numpy.get_buffers_mat_graph2d( graph, shape )
+    x, y, z =r2numpy.get_buffers_mat_graph2d( graph, shape ).copy()
     if x==None:
         return
 
@@ -97,7 +97,7 @@ def contourf_graph2d( graph, shape, *args, **kwargs ):
 ##en##end def contour_graph2d
 
 def plot_surface_graph2d( graph, shape, *args, **kwargs ):
-    x, y, z = r2numpy.get_buffers_mat_graph2d( graph, shape )
+    x, y, z = r2numpy.get_buffers_mat_graph2d( graph, shape ).copy()
     if x==None:
         return
 
@@ -109,7 +109,7 @@ def plot_surface_graph2d( graph, shape, *args, **kwargs ):
 ##end def contour_graph2d
 
 def plot_trisurf_graph2d( graph, *args, **kwargs ):
-    x, y, z = r2numpy.get_buffers_graph2d( graph )
+    x, y, z = r2numpy.get_buffers_graph2d( graph ).copy()
     if x==None:
         return
     colorbar, = pop_existing( kwargs, 'colorbar' )
@@ -121,7 +121,7 @@ def plot_trisurf_graph2d( graph, *args, **kwargs ):
 
 def bar_hist1( h, *args, **kwargs ):
     """Plot 1-dimensinal histogram using pyplot.bar"""
-    height = r2numpy.get_buffer_hist1( h )
+    height = r2numpy.get_buffer_hist1( h ).copy()
     ax = h.GetXaxis()
     lims, fixed = r2numpy.get_bin_edges_axis( ax, type=True )
     width=None
@@ -138,7 +138,7 @@ def errorbar_hist1( h, *args, **kwargs ):
     noyerr, mask, = [ kwargs.pop(x) if x in kwargs else None for x in ['noyerr', 'mask'] ]
     centers = r2numpy.get_bin_centers_axis( h.GetXaxis())
     hwidths = r2numpy.get_bin_widths_axis( h.GetXaxis())*0.5
-    height=r2numpy.get_buffer_hist( h )
+    height=r2numpy.get_buffer_hist( h ).copy()
     if ( mask!=None ): height = numpy.ma.array( height, mask=mask )
 
     yerr = None
@@ -157,7 +157,7 @@ def errorbar_hist1( h, *args, **kwargs ):
 def plot_hist1( h, *args, **kwargs ):
     """Plot 1-dimensinal histogram using pyplot.plot"""
     lims=r2numpy.get_bin_edges_axis(h.GetXaxis())
-    height=r2numpy.get_buffer_hist1( h )
+    height=r2numpy.get_buffer_hist1( h ).copy()
     return plot_hist( lims, height, *args, **kwargs )
 ##end plot_bar_hist1
 
@@ -188,7 +188,7 @@ def plot_centers_hist1( h, *args, **kwargs ):
     mask, = pop_existing( kwargs, 'mask' )
     lims=r2numpy.get_bin_edges_axis(h.GetXaxis())
     x = r2numpy.get_bin_centers_axis( h.GetXaxis() )
-    y = r2numpy.get_buffer_hist1( h )
+    y = r2numpy.get_buffer_hist1( h ).copy()
     if mask!=None: y = numpy.ma.array( y, mask=y==mask )
     return x, y, plt.plot( x, y, *args, **kwargs )
 ##end plot_bar_hist1
@@ -198,7 +198,7 @@ def plot_bar_hist1( h, *args, **kwargs ):
        baroptions are passed as baropts=dict(opt=value)
     """
     ax = h.GetXaxis()
-    height = r2numpy.get_buffer_hist1( h )
+    height = r2numpy.get_buffer_hist1( h ).copy()
     lims, fixed = r2numpy.get_bin_edges_axis(ax, type=True )
 
     from mpl_tools import plot_histbar
@@ -362,7 +362,7 @@ def pcolor_mesh_hist2( h, *args, **kwargs ):
     # print( 'mesh y', y )
 
     # get data bufer w/o underflow/overflow bins
-    buf = r2numpy.get_buffer_hist2( h,  mask=mask )
+    buf = r2numpy.get_buffer_hist2( h,  mask=mask ).copy()
 
     # plot
     from pylab import pcolormesh
@@ -381,20 +381,65 @@ def pcolor_hist2( h, *args, **kwargs ):
     yax = h.GetYaxis()
     if xax.GetXbins().GetSize()>0 or yax.GetXbins().GetSize()>0:
         print( 'Can not draw 2D a histogram with variable bin widths' )
-        print( 'Use drawMesh method or draweHist2Dmesh function instead' )
+        print( 'Use pcolormesh method or draweHist2Dmesh function instead' )
         return
     ##end if
     x = [ xax.GetXmin(), xax.GetXmax() ]
     y = [ yax.GetXmin(), yax.GetXmax() ]
 
     # get data bufer w/o underflow/overflow bins
-    buf = r2numpy.get_buffer_hist2( h,  mask=mask )
+    buf = r2numpy.get_buffer_hist2( h,  mask=mask ).copy()
 
     # plot
     from pylab import axes
     ax = axes()
     res = ax.pcolorfast( x, y, buf, *args, **kwargs )
     cbar = add_colorbar( res ) if colorbar or colz else None
+    if cbar:
+        return res,cbar
+
+    return res
+##end def pcolor_hist2
+
+def imshow_hist2( h, *args, **kwargs ):
+    """Plot TH2 using matplotlib.pcolorfast"""
+    mask, colorbar = pop_existing( kwargs, 'mask', 'colorbar' )
+
+    # get bin edges first
+    xax = h.GetXaxis()
+    yax = h.GetYaxis()
+    if xax.GetXbins().GetSize()>0 or yax.GetXbins().GetSize()>0:
+        print( 'Can not draw 2D a histogram with variable bin widths' )
+        print( 'Use pcolormesh method or draweHist2Dmesh function instead' )
+        return
+    ##end if
+    extent = [ xax.GetXmin(), xax.GetXmax(), yax.GetXmin(), yax.GetXmax()  ]
+
+    # get data bufer w/o underflow/overflow bins
+    buf = r2numpy.get_buffer_hist2( h,  mask=mask ).copy()
+
+    res = plt.imshow( buf, *args, extent=extent, **kwargs )
+    cbar = add_colorbar( res ) if colorbar or colz else None
+    if cbar:
+        return res,cbar
+
+    return res
+##end def pcolor_hist2
+
+def imshow_matrix( self, *args, **kwargs ):
+    """Plot TMatrixD using matplotlib.imshow"""
+    mask, colorbar = \
+        pop_existing( kwargs, 'mask', 'colorbar' )
+
+    buf = r2numpy.get_buffer_matrix( self ).copy()
+    if mask!=None:
+        buf = np.ma.array( buf, mask = buf==mask )
+    ##end if
+
+    res = plt.imshow( buf, *args, **kwargs )
+    cbar = add_colorbar( res ) if colorbar else None
+    if cbar:
+        return res, cbar
 
     return res
 ##end def pcolor_hist2
@@ -442,7 +487,7 @@ def plot_diag_matrix( m, *args, **kwargs ):
     assert m.GetNcols()==m.GetNrows(), 'Matrix is not square'
     limits, = [ kwargs.pop(x) if x in kwargs else None for x in ['limits'] ]
 
-    buf = r2numpy.get_buffer_matrix( m )
+    buf = r2numpy.get_buffer_matrix( m ).copy()
     from numpy import diagonal
     bins = diagonal( buf )
     lims = None
@@ -461,7 +506,7 @@ def plot_diag_matrix( m, *args, **kwargs ):
 def pcolor_diag_hist2( h, *args, **kwargs ):
     """Plot TH2 diagoanl ad TH1"""
     assert h.GetNbinsX()==h.GetNbinsY(), 'Histogram is not square'
-    buf = r2numpy.get_buffer_hist2( h )
+    buf = r2numpy.get_buffer_hist2( h ).copy()
     from numpy import diagonal
     bins = diagonal( buf )
     lims, fixedwidth = r2numpy.get_bin_edges_axis( h.GetXaxis(), type=True )
@@ -492,7 +537,7 @@ def plot_f1( f, x=None, *args, **kwargs ):
 
 def errorbar_array( self, *args, **kwargs ):
     from mpl_tools import errorbar_array
-    buf = r2numpy.get_buffer_array( self )
+    buf = r2numpy.get_buffer_array( self ).copy()
     errs = None
     if args:
         errs = args[0]
@@ -618,14 +663,17 @@ def bind_functions():
     setattr( ROOT.TH2, 'plot_mesh', pcolor_mesh_hist2 )
     setattr( ROOT.TH2, 'pcolorfast', pcolor_hist2 )
     setattr( ROOT.TH2, 'pcolormesh', pcolor_mesh_hist2 )
+    setattr( ROOT.TH2, 'imshow', imshow_hist2 )
     setattr( ROOT.TH2, 'contour', contour_hist2 )
     setattr( ROOT.TH2, 'contourf', contourf_hist2 )
 
     setattr( ROOT.TMatrixD, 'plot_diag', plot_diag_matrix )
     setattr( ROOT.TMatrixD, 'pcolorfast', pcolor_matrix )
     setattr( ROOT.TMatrixD, 'pcolormesh', pcolor_mesh_matrix )
+    setattr( ROOT.TMatrixD, 'imshow', imshow_matrix )
 
     setattr( ROOT.TMatrixF, 'plot_diag', plot_diag_matrix )
     setattr( ROOT.TMatrixF, 'pcolorfast', pcolor_matrix )
     setattr( ROOT.TMatrixF, 'pcolormesh', pcolor_mesh_matrix )
+    setattr( ROOT.TMatrixF, 'imshow', imshow_matrix )
 ##end def function

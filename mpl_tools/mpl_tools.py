@@ -43,6 +43,16 @@ def savefig( name, *args, **kwargs ):
     print( 'Save figure', name )
 ##end def savefig
 
+def legend_set_alignment( legend, alignment='right', figure=None):
+    """Set legend text alignment (to right)"""
+    assert alignment=='right'
+    figure = figure or plt.gcf()
+    renderer = figure.canvas.get_renderer()
+    shift = max([t.get_window_extent( renderer ).width for t in legend.get_texts()])
+    for t in legend.get_texts():
+        t.set_ha('right') # ha is alias for horizontalalignment
+        t.set_position((shift,0))
+
 def add_to_labeled( o, l ):
     ocurrent, lcurrent = ax.get_legend_handles_labels()
     ocurrent.append( o )
@@ -76,8 +86,7 @@ def plot_hist( lims, height, *args, **kwargs ):
     y[1:-1] = numpy.vstack( ( height, height ) ).ravel( order='F' )
     x = numpy.vstack( ( lims, lims ) ).ravel( order='F' )
 
-    from pylab import plot
-    return plot( x, y, *args, **kwargs )
+    return plt.plot( x, y, *args, **kwargs )
 ##end def plot_hist
 
 def fill_between_hists( lims, hlower, hupper, *args, **kwargs ):
