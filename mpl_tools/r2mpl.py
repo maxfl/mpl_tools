@@ -42,7 +42,7 @@ def errorbar_graph_asymm( g, *args, **kwargs ):
 
 def contour_graph2d( graph, shape, *args, **kwargs ):
     x, y, z = r2numpy.get_buffers_mat_graph2d( graph, shape ).copy()
-    if x==None:
+    if x is None:
         return
 
     chi2levels, v = pop_existing( kwargs,  'chi2levels', 'v'  )
@@ -58,9 +58,13 @@ def contour_hist2( hist, *args, **kwargs ):
     X = r2numpy.get_bin_centers_axis( hist.GetXaxis() )
     Y = r2numpy.get_bin_centers_axis( hist.GetYaxis() )
 
+    chi2levels, v, xyflip = pop_existing( kwargs,  'chi2levels', 'v', 'xyflip'  )
+    if xyflip:
+        z = z.T
+        X, Y = Y, X
+
     x, y = np.meshgrid( X, Y )
 
-    chi2levels, v = pop_existing( kwargs,  'chi2levels', 'v'  )
     if chi2levels:
         v = chi2_v( chi2levels, z.min() )
         return plt.contour( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
@@ -85,7 +89,7 @@ def contourf_hist2( hist, *args, **kwargs ):
 
 def contourf_graph2d( graph, shape, *args, **kwargs ):
     x, y, z =r2numpy.get_buffers_mat_graph2d( graph, shape ).copy()
-    if x==None:
+    if x is None:
         return
 
     chi2levels, v = pop_existing( kwargs,  'chi2levels', 'v'  )
@@ -98,7 +102,7 @@ def contourf_graph2d( graph, shape, *args, **kwargs ):
 
 def plot_surface_graph2d( graph, shape, *args, **kwargs ):
     x, y, z = r2numpy.get_buffers_mat_graph2d( graph, shape ).copy()
-    if x==None:
+    if x is None:
         return
 
     colorbar, = pop_existing( kwargs, 'colorbar' )
@@ -110,7 +114,7 @@ def plot_surface_graph2d( graph, shape, *args, **kwargs ):
 
 def plot_trisurf_graph2d( graph, *args, **kwargs ):
     x, y, z = r2numpy.get_buffers_graph2d( graph ).copy()
-    if x==None:
+    if x is None:
         return
     colorbar, = pop_existing( kwargs, 'colorbar' )
     res = plt.gca().plot_trisurf( x, y, z, *args, **kwargs )
@@ -139,12 +143,12 @@ def errorbar_hist1( h, *args, **kwargs ):
     centers = r2numpy.get_bin_centers_axis( h.GetXaxis())
     hwidths = r2numpy.get_bin_widths_axis( h.GetXaxis())*0.5
     height=r2numpy.get_buffer_hist( h ).copy()
-    if ( mask!=None ): height = numpy.ma.array( height, mask=mask )
+    if not mask is None: height = numpy.ma.array( height, mask=mask )
 
     yerr = None
     if not noyerr:
         yerr2 = r2numpy.get_err_buffer_hist1( h )
-        if yerr2==None: yerr2 = height
+        if yerr2 is None: yerr2 = height
         yerr = yerr2**0.5
     ##end if
 
@@ -164,7 +168,7 @@ def plot_hist1( h, *args, **kwargs ):
 def plot_stack_hist1( hists, *args, **kwargs ):
     """Plot 1-dimensinal histogram using pyplot.plot"""
     zero_value, colors, labels, zorder = pop_existing( kwargs, 'zero_value', 'colors', 'labels', 'zorder' )
-    if zero_value==None:
+    if zero_value is None:
         zero_value = 0.0
     if not labels:
         labels = []
@@ -189,7 +193,7 @@ def plot_centers_hist1( h, *args, **kwargs ):
     lims=r2numpy.get_bin_edges_axis(h.GetXaxis())
     x = r2numpy.get_bin_centers_axis( h.GetXaxis() )
     y = r2numpy.get_buffer_hist1( h ).copy()
-    if mask!=None: y = numpy.ma.array( y, mask=y==mask )
+    if not mask is None: y = numpy.ma.array( y, mask=y==mask )
     return x, y, plt.plot( x, y, *args, **kwargs )
 ##end plot_bar_hist1
 
@@ -320,7 +324,7 @@ def get_stats( hist, opt='nemr', *args, **kwargs ):
 def plot_stats( self, opt='nemr', loc=1, definitions={}, *args, **kwargs ):
     s = get_stats( self, opt, definitions )
     from mpl_toolkits.axes_grid.anchored_artists import AnchoredText
-    # if bbox==None: bbox = dict(facecolor='white', alpha=1)
+    # if bbox is None: bbox = dict(facecolor='white', alpha=1)
     if type(loc)==str:
         loc = {
             'upper right'  :    1
@@ -432,7 +436,7 @@ def imshow_matrix( self, *args, **kwargs ):
         pop_existing( kwargs, 'mask', 'colorbar' )
 
     buf = r2numpy.get_buffer_matrix( self ).copy()
-    if mask!=None:
+    if not mask is None:
         buf = np.ma.array( buf, mask = buf==mask )
     ##end if
 
@@ -451,7 +455,7 @@ def pcolor_matrix( m, *args, **kwargs ):
     x, y = limits!=None and limits or ([ 0.0, m.GetNcols() ], [ 0.0, m.GetNrows() ])
 
     buf = r2numpy.get_buffer_matrix( m ).copy()
-    if mask!=None:
+    if not mask is None:
         from numpy import ma
         buf = ma.array( buf, mask = buf==mask )
     ##end if
@@ -524,7 +528,7 @@ def plot_f1( f, x=None, *args, **kwargs ):
     """
     import numpy
     tp = type(x)
-    if x==None:
+    if x is None:
         x = numpy.linspace( f.GetXmin(), f.GetXmax(), f.GetNpx() )
     elif tp==int:
         x = numpy.linspace( f.GetXmin(), f.GetXmax(), x )
@@ -543,7 +547,7 @@ def errorbar_array( self, *args, **kwargs ):
         errs = args[0]
         args = args[1:]
     ##end if args
-    errs = ( errs if errs!=None else buf )**0.5
+    errs = ( buf if errs is None else errs )**0.5
 
     errorbar_array( buf, errs, *args, **kwargs )
 ##end def TArrayD

@@ -55,12 +55,12 @@ def convert_hist1( h, cls, newname=None, addbins=None, multbins=None, noerr=Fals
     ax = h.GetXaxis()
     xbins = ax.GetXbins()
     newh = None
-    if newname==None: newname=h.GetName()
+    if newname is None: newname=h.GetName()
     n = h.GetNbinsX()
     if xbins.GetSize()==0:
         x1, x2 = ax.GetXmin(), ax.GetXmax()
         if addbins:
-            assert multbins==None, 'Can not add/mult bins in the same time'
+            assert multbins is None, 'Can not add/mult bins in the same time'
             na, x2a = addbins
             newh = cls( newname, h.GetTitle(), na, x1, x2a )
         elif multbins:
@@ -70,7 +70,7 @@ def convert_hist1( h, cls, newname=None, addbins=None, multbins=None, noerr=Fals
             newh = cls( newname, h.GetTitle(), n, x1, x2 )
         ##end if
     else:
-        assert addbins==None, 'Can not add bins to variable bins histogram'
+        assert addbins is None, 'Can not add bins to variable bins histogram'
         newh = cls( newname, h.GetTitle(), h.GetNbinsX(), xbins.GetArray() )
     ##end if
     err = get_err_buffer_hist1( h, flows=True ) if not noerr else None
@@ -78,7 +78,7 @@ def convert_hist1( h, cls, newname=None, addbins=None, multbins=None, noerr=Fals
     newb = get_buffer_hist( newh, flows=True )
 
     if multbins:
-        if err!=None:
+        if not err is None:
             newh.Sumw2()
             newerr = get_err_buffer_hist1( newh, flows=True )
             newerr[0], newerr[-1] = err[0], err[-1]
@@ -90,7 +90,7 @@ def convert_hist1( h, cls, newname=None, addbins=None, multbins=None, noerr=Fals
         newb1=newb[1:-1].reshape( ( multbins, n ), order='F' )
         newb1[:]=b[1:-1]/float(multbins)
     else:
-        if err!=None:
+        if not err is None:
             newh.Sumw2()
             newerr = get_err_buffer_hist1( newh, flows=True )
             newerr[:n+2] = err[:]
@@ -157,10 +157,10 @@ def get_buffer_hist2( h, flows=False, mask=None ):
     nx, ny = h.GetNbinsX(), h.GetNbinsY()
     buf = h.GetArray()
     buf = frombuffer( buf, dtype( buf.typecode ), (nx+2)*(ny+2) ).reshape( ( ny+2, nx+2 ) )
-    if mask!=None:
+    if not mask is None:
         from numpy import ma
         buf = ma.array( buf, mask = buf==mask )
-    ##end if mask!=None
+    ##end if not mask is None
     if flows: return buf
 
     buf = buf[1:ny+1,1:nx+1]
@@ -213,10 +213,10 @@ def get_buffer_histN( h, flows=False, mask=None, err=False ):
     if arr.GetSize()==0: return None
     buf = arr.GetArray()
     buf = frombuffer( buf, dtype( buf.typecode ), n ).reshape( shape )
-    if mask!=None:
+    if not mask is None:
         from numpy import ma
         buf = ma.array( buf, mask = buf==mask )
-    ##end if mask!=None
+    ##end if not mask is None
     if flows: return buf
 
     if ndim==3: return buf[1:-1,1:-1,1:-1]
@@ -244,7 +244,7 @@ def get_buffers_graph2d( g ):
 
 def get_buffers_mat_graph2d( g, shape ):
     x, y, z = get_buffers_graph2d( g )
-    if x==None:
+    if x is None:
         return None, None, None
     return x.reshape( shape ), y.reshape( shape ), z.reshape( shape )
 ##end def tget_buffers_graph2d

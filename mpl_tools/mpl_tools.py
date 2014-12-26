@@ -6,14 +6,16 @@ from matplotlib import pyplot as plt
 import numpy
 import scipy, scipy.stats
 
-def add_colorbar( colormapable ):
-    if not colormapable:
-        return None
+def add_colorbar( colormapable, **kwargs ):
+    rasterized = kwargs.pop( 'rasterized', False )
+
     ax = plt.gca()
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-    cbar = plt.gcf().colorbar( colormapable, cax=cax )
+    cbar = plt.gcf().colorbar( colormapable, cax=cax, **kwargs )
+    if rasterized:
+        cbar.solids.set_rasterized( True )
     plt.sca( ax )
     return cbar
 ##end add_colorbar
@@ -27,7 +29,7 @@ def chi2_v( sigmas, zmin=0.0 ):
 ##end def chi2_v
 
 def pop_existing( d, *args ):
-    return [ d.pop(x) if x in d else None for x in args ]
+    return [ d.pop(x, None) for x in args ]
 ##end def pop_existing
 
 def savefig( name, *args, **kwargs ):
@@ -79,7 +81,7 @@ def set_title( t ):
 def plot_hist( lims, height, *args, **kwargs ):
     """Plot histogram with lines. Like bar(), but without lines between bars."""
     zero_value, = pop_existing( kwargs, 'zero_value' )
-    if zero_value==None:
+    if zero_value is None:
         zero_value = 0.0
     y = numpy.empty( len(height)*2+2 )
     y[0], y[-1]=zero_value, zero_value
@@ -196,10 +198,11 @@ def drawFun( f, x, *args, **kwargs ):
 
 def plot_table( text, loc=1, *args, **kwargs ):
     if type(text)==list:
-        text = '\n'.join( text )
+        sep = kwargs.pop( 'separator', '\n')
+        text = separator.join( text )
 
     from mpl_toolkits.axes_grid.anchored_artists import AnchoredText
-    # if bbox==None: bbox = dict(facecolor='white', alpha=1)
+    # if bbox is None: bbox = dict(facecolor='white', alpha=1)
     if type(loc)==str:
         loc = {
             'upper right'  :    1
@@ -223,4 +226,8 @@ def plot_table( text, loc=1, *args, **kwargs ):
     ax.add_artist( at )
     return at
 ##end def plot_stats
+
+def uses_latex():
+    import matplotlib
+    return matplotlib.rcParams[u'text.usetex']
 
