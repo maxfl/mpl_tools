@@ -11,8 +11,8 @@ import itertools
 def plot_graph( g, *args, **kwargs ):
     """Plot TGraph"""
     from pylab import plot
-    x, y = r2numpy.get_buffers_graph( g ).copy()
-    return plot( x, y, *args, **kwargs )
+    x, y = r2numpy.get_buffers_graph( g )
+    return plot( x.copy(), y.copy(), *args, **kwargs )
 ##end def
 
 def errorbar_graph( g, *args, **kwargs ):
@@ -71,6 +71,41 @@ def contour_hist2( hist, *args, **kwargs ):
 
     return plt.contour( x, y, z, *args, **kwargs ), dict( x=x, y=y, z=z, v=None )
 ##end def contour_graph2d
+
+def hist2_get_merged_buffers(hist, xyflip=False):
+    if type(hist)!=list:
+        hists=[hist]
+    else:
+        hists=hist
+    x,y,z = [],[],[]
+    print(hists)
+    for h in hists:
+        zz = r2numpy.get_buffer_hist2( h ).copy()
+        XX = r2numpy.get_bin_centers_axis( h.GetXaxis() )
+        YY = r2numpy.get_bin_centers_axis( h.GetYaxis() )
+        
+        if xyflip:
+            zz = zz.T
+            XX, YY = YY, XX
+    
+        xx, yy = np.meshgrid( XX, YY )
+        xx,yy,zz = xx.ravel(),yy.ravel(),zz.ravel()
+        
+        x.append(xx)
+        y.append(yy)
+        z.append(zz)
+    
+    return np.concatenate(x), np.concatenate(y), np.concatenate(z)
+
+def tricontour_hist2( hist, *args, **kwargs ):
+    x,y,z = hist2_get_merged_buffers(hist)
+    chi2levels, v, xyflip = pop_existing( kwargs,  'chi2levels', 'v', 'xyflip'  )
+    if chi2levels:
+        v = chi2_v( chi2levels, z.min() )
+        #print('___v',v)
+        return plt.tricontour( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
+
+    return plt.tricontour( x, y, z, *args, **kwargs ), dict( x=x, y=y, z=z, v=None )
 
 def contourf_hist2( hist, *args, **kwargs ):
     z = r2numpy.get_buffer_hist2( hist )
@@ -165,6 +200,39 @@ def plot_hist1( h, *args, **kwargs ):
     return plot_hist( lims, height, *args, **kwargs )
 ##end plot_bar_hist1
 
+def hist1_get_bin_points( self, *args, **kwargs ):
+    zero_value = kwargs.pop( 'zero_value', 0.0 )
+    lims = r2numpy.get_bin_edges_axis( self.GetXaxis() ) 
+    height = r2numpy.get_buffer_hist1( self )
+
+    y = np.empty( len(height)*2+2 )
+    y[0], y[-1]=zero_value, zero_value
+    y[1:-1] = np.vstack( ( height, height ) ).ravel( order='F' )
+    x = numpy.vstack( ( lims, lims ) ).ravel( order='F' )
+
+    return x, y
+
+def plot_stack_hist1_alt( hists, *args, **kwargs ):
+    ys = []
+    for hist in hists:
+        x, y = hist1_get_bin_points( hist )
+        ys.append( y )
+
+    labels = kwargs.pop( 'labels', None )
+    colors = kwargs.get( 'colors', [] )
+    if labels:
+        ax = plt.gca()
+        for label, color in itertools.izip( labels, itertools.cycle( colors ) ):
+            p = plt.Rectangle((0, 0), 0, 0, label=label, facecolor=color, linewidth=0.0,
+                              edgecolor='none', alpha=kwargs.get( 'alpha' ) )
+            ax = plt.gca()
+            ax.add_patch(p)
+
+    #print( 'Stack' )
+    #print( '  ', x )
+    #print( '  ', ys )
+    return plt.stackplot( x, ys, *args, **kwargs )
+
 def plot_stack_hist1( hists, *args, **kwargs ):
     """Plot 1-dimensinal histogram using pyplot.plot"""
     zero_value, colors, labels, zorder = pop_existing( kwargs, 'zero_value', 'colors', 'labels', 'zorder' )
@@ -179,9 +247,10 @@ def plot_stack_hist1( hists, *args, **kwargs ):
     previous = zero_value
     ret = []
     for h, color, label, z in itertools.izip( hists, itertools.cycle( colors ), itertools.cycle( labels ), itertools.cycle( zorder ) ):
+        #print( '    ', label, color )
         lims=r2numpy.get_bin_edges_axis( h.GetXaxis() )
         height=previous + r2numpy.get_buffer_hist1( h )
-        res = fill_between_hists( lims, previous, height, *args, color=color, label=label, zorder=z, **kwargs )
+        res = fill_between_hists( lims, previous, height, *args, facecolor=color, label=label, zorder=z, **kwargs )
         ret.append( res )
         previous = height
     return ret
@@ -536,7 +605,8 @@ def plot_f1( f, x=None, *args, **kwargs ):
         x = numpy.arange( f.GetXmin(), f.GetXmax(), x )
     ##end
 
-    return drawFun( f.Eval, x, *args, **kwargs )
+    from mpl_tools import plot_fcn
+    return plot_fcn( f.Eval, x, *args, **kwargs )
 ##end def plot_f1
 
 def errorbar_array( self, *args, **kwargs ):
@@ -669,6 +739,7 @@ def bind_functions():
     setattr( ROOT.TH2, 'pcolormesh', pcolor_mesh_hist2 )
     setattr( ROOT.TH2, 'imshow', imshow_hist2 )
     setattr( ROOT.TH2, 'contour', contour_hist2 )
+    setattr( ROOT.TH2, 'tricontour', tricontour_hist2 )
     setattr( ROOT.TH2, 'contourf', contourf_hist2 )
 
     setattr( ROOT.TMatrixD, 'plot_diag', plot_diag_matrix )

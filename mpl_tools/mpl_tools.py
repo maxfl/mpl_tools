@@ -7,7 +7,7 @@ import numpy
 import scipy, scipy.stats
 
 def add_colorbar( colormapable, **kwargs ):
-    rasterized = kwargs.pop( 'rasterized', False )
+    rasterized = kwargs.pop( 'rasterized', True )
 
     ax = plt.gca()
     from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -80,9 +80,7 @@ def set_title( t ):
 
 def plot_hist( lims, height, *args, **kwargs ):
     """Plot histogram with lines. Like bar(), but without lines between bars."""
-    zero_value, = pop_existing( kwargs, 'zero_value' )
-    if zero_value is None:
-        zero_value = 0.0
+    zero_value = kwargs.pop( 'zero_value', 0.0 )
     y = numpy.empty( len(height)*2+2 )
     y[0], y[-1]=zero_value, zero_value
     y[1:-1] = numpy.vstack( ( height, height ) ).ravel( order='F' )
@@ -110,10 +108,10 @@ def fill_between_hists( lims, hlower, hupper, *args, **kwargs ):
         ax = plt.gca()
         ax.add_patch(p)
 
-    #print( x.shape,  x )
-    #print( kwargs )
-    #print( yl.shape if type(yl)!=float else 1, yl )
-    #print( yu.shape, yu )
+    #print( '  args', args, kwargs )
+    #print( '  x', x )
+    #print( '  lower', yl )
+    #print( '  upper', yu )
     return plt.fill_between( x, yl, yu, *args, **kwargs )
 ##end def plot_hist
 
@@ -187,13 +185,12 @@ def errorbar_ratio( a1, e1sq, a2, e2sq, *args, **kwargs ):
     return errorbar_array( ratio, err, *args, **kwargs )
 ##end def errorbar_ratio
 
-def drawFun( f, x, *args, **kwargs ):
+def plot_fcn( f, x, *args, **kwargs ):
     """Draw a function values for x"""
     from numpy import frompyfunc
     fun = frompyfunc( f, 1, 1 )
 
-    from pylab import plot
-    return plot( x, fun(x), *args, **kwargs )
+    return plt.plot( x, fun(x), *args, **kwargs )
 ##end def drawFun
 
 def plot_table( text, loc=1, *args, **kwargs ):
