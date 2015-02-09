@@ -35,14 +35,25 @@ def pop_existing( d, *args ):
 def savefig( name, *args, **kwargs ):
     """Save fig and print output filename"""
     if not name: return
-    suffix, = pop_existing( kwargs, 'suffix' )
-    if suffix!=None:
+    suffix = kwargs.pop( 'suffix' )
+    addext = kwargs.pop( 'addext', [] )
+    if suffix:
         from os.path import splitext
         basename, ext = splitext( name )
         name = basename+suffix+ext
 
     plt.savefig( name, *args, **kwargs )
     print( 'Save figure', name )
+
+    if addext:
+        if not type( addext )==list:
+            addext = [ addext ]
+        from os import path
+        basename, extname = path.splitext( name )
+        for ext in addext:
+            name = '%s.%s'%( basename, ext )
+            print( 'Save figure', name )
+            plt.savefig( name, *args, **kwargs )
 ##end def savefig
 
 def legend_set_alignment( legend, alignment='right', figure=None):
