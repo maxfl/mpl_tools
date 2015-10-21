@@ -24,7 +24,13 @@ def chi2_nsigma( nsigma, ndf ):
     return scipy.stats.chi2.ppf( scipy.stats.chi2.cdf( nsigma**2, 1), ndf )
 ##end def get_chi2_nsigma
 
-def chi2_v( sigmas, zmin=0.0 ):
+def chi2_prob( levels, ndf ):
+    return scipy.stats.chi2.ppf( levels, ndf )
+
+def chi2_v( sigmas=None, probs=None, zmin=0.0 ):
+    assert probs or sigmas
+    if probs:
+        return [ chi2_prob( p, 2 )+zmin for p in probs ]
     return [ chi2_nsigma( s, 2 )+zmin for s in sigmas ]
 ##end def chi2_v
 
@@ -35,7 +41,7 @@ def pop_existing( d, *args ):
 def savefig( name, *args, **kwargs ):
     """Save fig and print output filename"""
     if not name: return
-    suffix = kwargs.pop( 'suffix' )
+    suffix = kwargs.pop( 'suffix', None )
     addext = kwargs.pop( 'addext', [] )
     if suffix:
         from os.path import splitext
@@ -72,15 +78,12 @@ def add_to_labeled( o, l ):
     lcurrent.append( l )
 
 def legend_ext( before=[[],[]], after=[[],[]], ax=None, **kwargs ):
-    alpha, = pop_existing( kwargs, 'alpha' )
     ax = ax or plt.gca()
 
     obefore, lbefore = before
     oafter, lafter = after
     ocurrent, lcurrent = ax.get_legend_handles_labels()
     leg = ax.legend( obefore+ocurrent+oafter, lbefore+lcurrent+lafter, **kwargs )
-    if alpha!=None:
-        leg.get_frame().set_alpha( alpha )
     return leg
 
 def set_title( t ):
@@ -204,10 +207,10 @@ def plot_fcn( f, x, *args, **kwargs ):
     return plt.plot( x, fun(x), *args, **kwargs )
 ##end def drawFun
 
-def plot_table( text, loc=1, *args, **kwargs ):
+def plot_table( text, loc=1, patchopts=None, *args, **kwargs ):
     if type(text)==list:
         sep = kwargs.pop( 'separator', '\n')
-        text = separator.join( text )
+        text = sep.join( text )
 
     from mpl_toolkits.axes_grid.anchored_artists import AnchoredText
     # if bbox is None: bbox = dict(facecolor='white', alpha=1)
@@ -228,6 +231,8 @@ def plot_table( text, loc=1, *args, **kwargs ):
     prop, = pop_existing( kwargs, 'prop' )
     prop = prop or {}
     at = AnchoredText( text, loc, *args, prop=prop, **kwargs )
+    if patchopts:
+        at.patch.set( **patchopts )
 
     from matplotlib import pyplot as plt
     ax = plt.gca()
@@ -238,4 +243,52 @@ def plot_table( text, loc=1, *args, **kwargs ):
 def uses_latex():
     import matplotlib
     return matplotlib.rcParams[u'text.usetex']
+
+def append_levels( ax, ay, chi2levels, show_min=False, yax_min=0.0, **kwargs):
+    textoffset = kwargs.pop( 'offset', 1 )
+    flip = kwargs.pop( 'flip', False )
+    topts = kwargs.pop( 'textopts', {} )
+    interpolation = kwargs.pop( 'interpolation', 'linear' )
+    imin = numpy.argmin( ay )
+    xmin, ymin = ax[imin], ay[imin]
+
+    from scipy.interpolate import interp1d
+    from scipy.optimize import brentq, brent
+    fcn = interp1d( ax, ay, kind=interpolation)
+
+    if xmin==ax[0] or xmin==ax[-1]:
+        brack = ( ax[0], ax[-1] )
+    else:
+        brack = ( ax[0], xmin, ax[-1] )
+    print( 'bracket: ', brack )
+    xmin = brent( fcn, brack=brack )
+    ymin = fcn(xmin)
+    if show_min:
+        plt.vlines( [ xmin ], yax_min, ymin, **kwargs )
+    levels = []
+    for sign in chi2levels:
+        level = ymin + sign**2
+        try:
+            x1 = brentq( lambda x: fcn(x)-level, ax[0], xmin )
+        except:
+            x1=0.0
+        try:
+            x2 = brentq( lambda x: fcn(x)-level, xmin, ax[-1] )
+        except:
+            print( 'Skip level for', sign )
+            continue
+        #print( 'Level', sign, level, x1, x2 )
+
+        levels.append( [ x1, x2 ] )
+
+        if flip:
+            plt.hlines( [ x1, x2 ], yax_min, level, **kwargs )
+            plt.vlines( level, x1, x2, **kwargs )
+            plt.text( level+textoffset, xmin, '%i$\sigma$'%sign, va='center', **topts )
+        else:
+            plt.vlines( [ x1, x2 ], yax_min, level, **kwargs )
+            plt.hlines( level, x1, x2, **kwargs )
+            plt.text( (x1+x2)*0.5, level+textoffset, '%i$\sigma$'%sign, ha='center', va='bottom', **topts  )
+
+    return levels
 

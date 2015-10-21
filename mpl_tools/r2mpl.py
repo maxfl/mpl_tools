@@ -10,9 +10,15 @@ import itertools
 
 def plot_graph( g, *args, **kwargs ):
     """Plot TGraph"""
-    from pylab import plot
+    chi2levels = kwargs.pop( 'chi2levels', [] )
+    chi2levels_opts = kwargs.pop( 'chi2opts', {} )
     x, y = r2numpy.get_buffers_graph( g )
-    return plot( x.copy(), y.copy(), *args, **kwargs )
+    res = plt.plot( x.copy(), y.copy(), *args, **kwargs )
+
+    if chi2levels:
+        append_levels( x, y, chi2levels, **chi2levels_opts )
+
+    return res
 ##end def
 
 def errorbar_graph( g, *args, **kwargs ):
@@ -45,28 +51,47 @@ def contour_graph2d( graph, shape, *args, **kwargs ):
     if x is None:
         return
 
-    chi2levels, v = pop_existing( kwargs,  'chi2levels', 'v'  )
-    if chi2levels:
-        v = chi2_v( chi2levels, z.min() )
+    chi2levels, v, problevels = pop_existing( kwargs,  'chi2levels', 'v', 'problevels'  )
+    if chi2levels or problevels:
+        v = chi2_v( sigmas=chi2levels, probs=problevels, zmin=z.min() )
+    if not v is None:
         return plt.contour( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
 
     return plt.contour( x, y, z, *args, **kwargs ), dict( x=x, y=y, z=z, v=None )
 ##end def contour_graph2d
+
+def tricontour_graph2d( graph, *args, **kwargs ):
+    x, y, z = r2numpy.get_buffers_graph2d(graph)
+    x, y, z = x.copy(), y.copy(), z.copy()
+    chi2levels, v, xyflip = pop_existing( kwargs,  'chi2levels', 'v', 'xyflip'  )
+    if xyflip:
+        x, y = y, x
+
+    if chi2levels:
+        v = chi2_v( chi2levels, zmin=z.min() )
+
+    if v:
+        return plt.tricontour( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
+
+    return plt.tricontour( x, y, z, *args, **kwargs ), dict( x=x, y=y, z=z, v=None )
 
 def contour_hist2( hist, *args, **kwargs ):
     z = r2numpy.get_buffer_hist2( hist ).copy()
     X = r2numpy.get_bin_centers_axis( hist.GetXaxis() )
     Y = r2numpy.get_bin_centers_axis( hist.GetYaxis() )
 
-    chi2levels, v, xyflip = pop_existing( kwargs,  'chi2levels', 'v', 'xyflip'  )
+    chi2levels, v, xyflip, zmin, problevels = \
+            pop_existing( kwargs,  'chi2levels', 'v', 'xyflip', 'min', 'problevels'  )
     if xyflip:
         z = z.T
         X, Y = Y, X
 
     x, y = np.meshgrid( X, Y )
 
-    if chi2levels:
-        v = chi2_v( chi2levels, z.min() )
+    if chi2levels or problevels:
+        v = chi2_v( sigmas=chi2levels, probs=problevels, zmin=z.min() if zmin is None else zmin )
+
+    if not v is None:
         return plt.contour( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
 
     return plt.contour( x, y, z, *args, **kwargs ), dict( x=x, y=y, z=z, v=None )
@@ -83,25 +108,31 @@ def hist2_get_merged_buffers(hist, xyflip=False):
         zz = r2numpy.get_buffer_hist2( h ).copy()
         XX = r2numpy.get_bin_centers_axis( h.GetXaxis() )
         YY = r2numpy.get_bin_centers_axis( h.GetYaxis() )
-        
+
         if xyflip:
             zz = zz.T
             XX, YY = YY, XX
-    
+
         xx, yy = np.meshgrid( XX, YY )
         xx,yy,zz = xx.ravel(),yy.ravel(),zz.ravel()
-        
+
         x.append(xx)
         y.append(yy)
         z.append(zz)
-    
+
     return np.concatenate(x), np.concatenate(y), np.concatenate(z)
 
 def tricontour_hist2( hist, *args, **kwargs ):
     x,y,z = hist2_get_merged_buffers(hist)
     chi2levels, v, xyflip = pop_existing( kwargs,  'chi2levels', 'v', 'xyflip'  )
+    step = kwargs.pop( 'step', 1 )
+    if step>1:
+        x, y, z = x[::step], y[::step], z[::step]
+
+    if xyflip:
+        x, y = y, x
     if chi2levels:
-        v = chi2_v( chi2levels, z.min() )
+        v = chi2_v( chi2levels, zmin=z.min() )
         #print('___v',v)
         return plt.tricontour( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
 
@@ -116,7 +147,7 @@ def contourf_hist2( hist, *args, **kwargs ):
 
     chi2levels, v = pop_existing( kwargs,  'chi2levels', 'v'  )
     if chi2levels:
-        v = chi2_v( chi2levels, z.min() )
+        v = chi2_v( chi2levels, zmin=z.min() )
         return plt.contourf( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
 
     return plt.contourf( x, y, z, *args, **kwargs ), dict( x=x, y=y, z=z, v=None )
@@ -129,7 +160,7 @@ def contourf_graph2d( graph, shape, *args, **kwargs ):
 
     chi2levels, v = pop_existing( kwargs,  'chi2levels', 'v'  )
     if chi2levels:
-        v = chi2_v( chi2levels, z.min() )
+        v = chi2_v( chi2levels, zmin=z.min() )
         return plt.contourf( x, y, z, v, *args, **kwargs ), dict( x=x, y=y, z=z, v=v )
 
     return plt.contourf( x, y, z, *args, **kwargs ), dict( x=x, y=y, z=z, v=None )
@@ -202,7 +233,7 @@ def plot_hist1( h, *args, **kwargs ):
 
 def hist1_get_bin_points( self, *args, **kwargs ):
     zero_value = kwargs.pop( 'zero_value', 0.0 )
-    lims = r2numpy.get_bin_edges_axis( self.GetXaxis() ) 
+    lims = r2numpy.get_bin_edges_axis( self.GetXaxis() )
     height = r2numpy.get_buffer_hist1( self )
 
     y = np.empty( len(height)*2+2 )
@@ -392,32 +423,7 @@ def get_stats( hist, opt='nemr', *args, **kwargs ):
 
 def plot_stats( self, opt='nemr', loc=1, definitions={}, *args, **kwargs ):
     s = get_stats( self, opt, definitions )
-    from mpl_toolkits.axes_grid.anchored_artists import AnchoredText
-    # if bbox is None: bbox = dict(facecolor='white', alpha=1)
-    if type(loc)==str:
-        loc = {
-            'upper right'  :    1
-          , 'upper left'   :    2
-          , 'lower left'   :    3
-          , 'lower right'  :    4
-          , 'right'        :    5
-          , 'center left'  :    6
-          , 'center right' :    7
-          , 'lower center' :    8
-          , 'upper center' :    9
-          , 'center'       :    10
-        }[loc]
-    ##end if
-    at = AnchoredText( s, loc, *args, frameon=False, prop={}, **kwargs )
-    at.patch.set_facecolor( 'white' )
-    at.patch.set_color( 'white' )
-    at.patch.set_fill( 'full' )
-    at.patch.set_alpha( 1.0 )
-    at.set_alpha( 1.0 )
-    from matplotlib import pyplot as plt
-    ax = plt.gca()
-    ax.add_artist( at )
-    return at
+    return plot_table( s, *args, patchopts=dict(ec='none'), **kwargs )
 ##end def plot_stats
 
 def pcolor_mesh_hist2( h, *args, **kwargs ):
@@ -720,6 +726,7 @@ def bind_functions():
     setattr( ROOT.TGraph2D, 'plot_trisurf',  plot_trisurf_graph2d )
     setattr( ROOT.TGraph2D, 'contour',  contour_graph2d )
     setattr( ROOT.TGraph2D, 'contourf', contour_graph2d )
+    setattr( ROOT.TGraph2D, 'tricontour', tricontour_graph2d )
 
     setattr( ROOT.TH1, 'show_title', import_title )
     setattr( ROOT.TH1, 'bar', bar_hist1 )
