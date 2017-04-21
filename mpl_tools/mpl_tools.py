@@ -8,12 +8,28 @@ import scipy, scipy.stats
 
 def add_colorbar( colormapable, **kwargs ):
     rasterized = kwargs.pop( 'rasterized', True )
+    minorticks = kwargs.pop( 'minorticks', False )
+    minorticks_values = kwargs.pop( 'minorticks_values', None )
 
     ax = plt.gca()
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     cbar = plt.gcf().colorbar( colormapable, cax=cax, **kwargs )
+
+    if minorticks:
+        if type(minorticks) is str:
+            if minorticks=='linear':
+                pass
+            elif minorticks=='log':
+                minorticks_values = colormapable.norm( minorticks_values )
+
+            l1, l2 = cax.get_ylim()
+            minorticks_values = minorticks_values[ (minorticks_values>=l1)*(minorticks_values<=l2) ]
+            cax.yaxis.set_ticks(minorticks_values, minor=True)
+        else:
+            cax.minorticks_on()
+
     if rasterized:
         cbar.solids.set_rasterized( True )
     plt.sca( ax )
@@ -30,7 +46,7 @@ def chi2_prob( levels, ndf ):
 def chi2_v( sigmas=None, probs=None, zmin=0.0 ):
     assert probs or sigmas
     if probs:
-        return [ chi2_prob( p, 2 )+zmin for p in probs ]
+       return [ chi2_prob( p, 2 )+zmin for p in probs ]
     return [ chi2_nsigma( s, 2 )+zmin for s in sigmas ]
 ##end def chi2_v
 
@@ -41,6 +57,11 @@ def pop_existing( d, *args ):
 def savefig( name, *args, **kwargs ):
     """Save fig and print output filename"""
     if not name: return
+    if type(name)==list:
+        for n in name:
+            savefig( n, *args, **kwargs.copy() )
+        return
+
     suffix = kwargs.pop( 'suffix', None )
     addext = kwargs.pop( 'addext', [] )
     if suffix:
@@ -80,9 +101,20 @@ def add_to_labeled( o, l ):
 def legend_ext( before=[[],[]], after=[[],[]], ax=None, **kwargs ):
     ax = ax or plt.gca()
 
-    obefore, lbefore = before
-    oafter, lafter = after
+    if type(before[0]) is list:
+        obefore, lbefore = before
+    else:
+        obefore = before
+        lbefore = [ p.get_label() for p in before ]
+
+    if type(after[0]) is list:
+        oafter, lafter = after
+    else:
+        oafter = after
+        lafter = [ p.get_label() for p in after ]
+
     ocurrent, lcurrent = ax.get_legend_handles_labels()
+
     leg = ax.legend( obefore+ocurrent+oafter, lbefore+lcurrent+lafter, **kwargs )
     return leg
 
@@ -99,6 +131,10 @@ def plot_hist( lims, height, *args, **kwargs ):
     y[0], y[-1]=zero_value, zero_value
     y[1:-1] = numpy.vstack( ( height, height ) ).ravel( order='F' )
     x = numpy.vstack( ( lims, lims ) ).ravel( order='F' )
+
+    if kwargs.pop( 'noedge', False ):
+        x = x[1:-1]
+        y = y[1:-1]
 
     return plt.plot( x, y, *args, **kwargs )
 ##end def plot_hist
@@ -207,13 +243,32 @@ def plot_fcn( f, x, *args, **kwargs ):
     return plt.plot( x, fun(x), *args, **kwargs )
 ##end def drawFun
 
-def plot_table( text, loc=1, patchopts=None, *args, **kwargs ):
+def plot_table( text, *args, **kwargs ):
+    patchopts = kwargs.pop( 'patchopts', None )
+    sep     = kwargs.pop( 'separator', u'\n')
     if type(text)==list:
-        sep = kwargs.pop( 'separator', '\n')
-        text = sep.join( text )
+        linefmt = kwargs.pop( 'linefmt', u'{}')
+        if type( linefmt ) is str or type(linefmt) is unicode:
+            fmt = linefmt
+            linefmt = lambda *a: fmt.format( *a )
+        lines = []
+        lst = [linefmt(*line) if type(line) is list else linefmt(line) for line in text]
+        text = sep.join( lst )
+
+    header, footer = kwargs.pop( 'header', None ), kwargs.pop( 'footer', None )
+    if header: text = header+sep+text
+    if footer: text = text+sep+footer
+
+    if kwargs.pop( 'dump', False ):
+        print( 'Table text:\n', text, sep='' )
 
     from mpl_toolkits.axes_grid.anchored_artists import AnchoredText
     # if bbox is None: bbox = dict(facecolor='white', alpha=1)
+    outside = kwargs.pop( 'outside', None )
+    loc = kwargs.pop( 'loc', None )
+    if outside:
+        loc='upper left'
+        kwargs.setdefault( 'borderpad', 0.0 )
     if type(loc)==str:
         loc = {
             'upper right'  :    1
@@ -227,15 +282,19 @@ def plot_table( text, loc=1, patchopts=None, *args, **kwargs ):
           , 'upper center' :    9
           , 'center'       :    10
         }[loc]
-    ##end if
+    if not loc:
+        loc = 1
     prop, = pop_existing( kwargs, 'prop' )
     prop = prop or {}
+    ax = plt.gca()
+    if outside:
+        kwargs[ 'bbox_to_anchor' ]=outside
+        kwargs[ 'bbox_transform' ]=ax.transAxes
+
     at = AnchoredText( text, loc, *args, prop=prop, **kwargs )
     if patchopts:
         at.patch.set( **patchopts )
 
-    from matplotlib import pyplot as plt
-    ax = plt.gca()
     ax.add_artist( at )
     return at
 ##end def plot_stats
@@ -245,6 +304,8 @@ def uses_latex():
     return matplotlib.rcParams[u'text.usetex']
 
 def append_levels( ax, ay, chi2levels, show_min=False, yax_min=0.0, **kwargs):
+    axes       = kwargs.pop( 'axes', plt.gca() )
+    text_sigma = kwargs.pop( 'text_sigma', True )
     textoffset = kwargs.pop( 'offset', 1 )
     flip = kwargs.pop( 'flip', False )
     topts = kwargs.pop( 'textopts', {} )
@@ -264,7 +325,7 @@ def append_levels( ax, ay, chi2levels, show_min=False, yax_min=0.0, **kwargs):
     xmin = brent( fcn, brack=brack )
     ymin = fcn(xmin)
     if show_min:
-        plt.vlines( [ xmin ], yax_min, ymin, **kwargs )
+        axes.vlines( [ xmin ], yax_min, ymin, **kwargs )
     levels = []
     for sign in chi2levels:
         level = ymin + sign**2
@@ -282,13 +343,81 @@ def append_levels( ax, ay, chi2levels, show_min=False, yax_min=0.0, **kwargs):
         levels.append( [ x1, x2 ] )
 
         if flip:
-            plt.hlines( [ x1, x2 ], yax_min, level, **kwargs )
-            plt.vlines( level, x1, x2, **kwargs )
-            plt.text( level+textoffset, xmin, '%i$\sigma$'%sign, va='center', **topts )
+            axes.hlines( [ x1, x2 ], yax_min, level, **kwargs )
+            axes.vlines( level, x1, x2, **kwargs )
+            if text_sigma:
+                axes.text( level+textoffset, xmin, '%i$\sigma$'%sign, va='center', **topts )
         else:
-            plt.vlines( [ x1, x2 ], yax_min, level, **kwargs )
-            plt.hlines( level, x1, x2, **kwargs )
-            plt.text( (x1+x2)*0.5, level+textoffset, '%i$\sigma$'%sign, ha='center', va='bottom', **topts  )
+            axes.vlines( [ x1, x2 ], yax_min, level, **kwargs )
+            axes.hlines( level, x1, x2, **kwargs )
+            if text_sigma:
+                axes.text( (x1+x2)*0.5, level+textoffset, '%i$\sigma$'%sign, ha='center', va='bottom', **topts  )
 
     return levels
 
+def hide_last_tick( axis, n=1 ):
+    xticks = axis.get_major_ticks()
+    if type(n) is int:
+        n = slice( -n, None )
+    for tick in xticks[n]:
+        tick.label1.set_visible(False)
+
+def modify_merged_axes( upper, lower, nticks=1 ):
+    upper.tick_params( axis='x', which='both', bottom='off', labelbottom='off')
+    upper.set_xlabel( '' )
+    if nticks:
+        hide_last_tick( lower.yaxis, n=nticks )
+
+def indicate_outliers( ax, x=None, y=None, **kwargs ):
+    kwargs.setdefault( 'color', 'red' )
+    kwargs.setdefault( 'markersize', 8)
+    if not x is None:
+        if (x<ax.get_xlim()[0]).any():
+            ax.plot( [0.01], [0.9], '<', transform=ax.transAxes, **kwargs )
+        if (x>ax.get_xlim()[1]).any():
+            ax.plot( [0.99], [0.9], '>', transform=ax.transAxes, **kwargs )
+
+    if not y is None:
+        if (y<ax.get_ylim()[0]).any():
+            ax.plot( [0.9], [0.01], 'v', transform=ax.transAxes, **kwargs )
+        if (y>ax.get_ylim()[1]).any():
+            ax.plot( [0.9], [0.99], '^', transform=ax.transAxes, **kwargs )
+
+def rebin( array, edges_from, edges_to, **kwargs ):
+    """Rebin numpy array from one set of bin edges to another compatible set"""
+    round = kwargs.pop( 'round', None )
+    if not round is None:
+        edges_from = numpy.round( edges_from, round )
+        edges_to   = numpy.round( edges_to, round )
+
+    mask    = numpy.in1d( edges_from, edges_to )
+    indices = numpy.nonzero(mask)[0]
+    if indices.size!=edges_to.size:
+        print('Array edges are inconsistent:')
+        print( 'from (%i): '%(edges_from.size), '\n', edges_from )
+        print()
+        print( 'to (%i): '%(edges_to.size),   '\n', edges_to )
+        print()
+        print( 'match indices (%i): '%(indices.size),    '\n', indices )
+        print()
+        print( 'matched elements (%i): '%(indices.size),    '\n', edges_from[mask] )
+        print()
+
+        assert False
+
+    newarray = numpy.zeros( shape=edges_to.size-1, dtype=array.dtype )
+    for j, (i1, i2) in enumerate(zip( indices[:-1], indices[1:] )):
+        newarray[j] = array[i1:i2].sum()
+
+    tolerance = kwargs.pop( 'tolerance', None )
+    if not tolerance is None:
+        s1, s2 = array.sum(), newarray.sum()
+        diff = s1-s2
+        if diff>tolerance:
+            print( 'Error. Deviation above tolerance (%g):'%tolerance, s1, s2, diff )
+            print( 'from (%i): '%(edges_from.size), '\n', edges_from )
+            print( 'to (%i): '%(edges_to.size),   '\n', edges_to )
+
+            raise Exception( 'deviation above tolerance' )
+
+    return newarray

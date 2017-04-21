@@ -509,6 +509,7 @@ def imshow_matrix( self, *args, **kwargs ):
     """Plot TMatrixD using matplotlib.imshow"""
     mask, colorbar = \
         pop_existing( kwargs, 'mask', 'colorbar' )
+    cbaropts = kwargs.pop( 'colorbar_opts', {} )
 
     buf = r2numpy.get_buffer_matrix( self ).copy()
     if not mask is None:
@@ -516,7 +517,7 @@ def imshow_matrix( self, *args, **kwargs ):
     ##end if
 
     res = plt.imshow( buf, *args, **kwargs )
-    cbar = add_colorbar( res ) if colorbar else None
+    cbar = add_colorbar( res, **cbaropts ) if colorbar else None
     if cbar:
         return res, cbar
 

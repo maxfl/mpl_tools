@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from __future__ import print_function, division
 import ROOT, numpy
 
 def get_buffers_tree( tree, expr, cut='' ):
@@ -104,6 +105,71 @@ def convert_hist1( h, cls, newname=None, addbins=None, multbins=None, noerr=Fals
     return newh
 ##end def histConvert
 
+def unrebin_hist1( self, times=2 ):
+    assert type(times)==int, 'Can unrebin only integer number of times'
+    buf   = get_buffer_hist1( self )
+    sbuf  = get_err_buffer_hist1( self )
+    edges, fixed = get_bin_edges_axis( self.GetXaxis(), type=True )
+
+    if fixed:
+        newhist = self.__class__( self.GetName(), self.GetTitle(), times*buf.size, edges[0], edges[-1] )
+    else:
+        newedges = numpy.zeros( shape=(times*buf.size+1), dtype=edges.dtype )
+        newedges[::times]  = edges
+        left, right = edges[:-1], edges[1:]
+        width = right-left
+        for i in range( 1, times ):
+            newedges[i::times] = left + width*( i/times )
+        newhist = self.__class__( self.GetName(), self.GetTitle(), times*buf.size, newedges )
+
+    newbuf = get_buffer_hist1( newhist )
+    if sbuf is None:
+        newsbuf = None
+    else:
+        newhist.Sumw2()
+        newsbuf = get_err_buffer_hist1( newhist )
+
+    for i in range( times ):
+        newbuf[i::times] = buf
+    newbuf*=1.0/times
+    if not sbuf is None:
+        for i in range( times ):
+            newsbuf[i::times] = sbuf
+        newsbuf*=1.0/times
+
+    return newhist
+
+def truncate_hist1( self, xmin, xmax ):
+    buf   = get_buffer_hist1( self )
+    sbuf  = get_err_buffer_hist1( self )
+    edges, fixed = get_bin_edges_axis( self.GetXaxis(), type=True )
+
+    e1 = numpy.fabs(edges[:-1]-xmin)<1.e-9
+    e2 = numpy.fabs(edges[1:]-xmax)<1.e-9
+    assert numpy.any( e1 ) and numpy.any( e2 ), 'Invalid new histogram limits'
+    i1 = numpy.nonzero( e1 )[0][0]
+    i2 = numpy.nonzero( e2 )[0][-1]+1
+
+    if fixed:
+        newhist = self.__class__( self.GetName(), self.GetTitle(), i2-i1, xmin, xmax )
+    else:
+        newhist = self.__class__( self.GetName(), self.GetTitle(), i2-i1, edges[i1:i2] )
+
+    newbuf = get_buffer_hist1( newhist )
+    if sbuf is None:
+        newsbuf = None
+    else:
+        newhist.Sumw2()
+        newsbuf = get_err_buffer_hist1( newhist )
+
+    newbuf[:] = buf[i1:i2]
+    if not sbuf is None:
+        newsbuf[:] = sbuf[i1:i2]
+
+    newhist.SetEntries( newhist.Integral() )
+
+    return newhist
+
 def get_buffer_vector( self ):
     from numpy import frombuffer, dtype
     buf = self.GetMatrixArray()
@@ -116,11 +182,16 @@ def get_buffer_array( self ):
     return frombuffer( buf, dtype( buf.typecode ), self.GetSize() )
 ##end def get_buffer_vector
 
-def get_buffer_matrix( m ):
+def get_buffer_matrix( m, **kwargs ):
     from numpy import frombuffer, dtype
     cbuf = m.GetMatrixArray()
     buf = frombuffer( cbuf, dtype( cbuf.typecode ), m.GetNoElements() )
-    return buf.reshape( m.GetNrows(), m.GetNcols() )
+    res = buf.reshape( m.GetNrows(), m.GetNcols() )
+
+    if kwargs.pop( 'asmatrix', False ):
+        return numpy.matrix( res )
+
+    return res
 ##end def
 
 def get_buffer_hist1( h, flows=False ):
@@ -147,7 +218,7 @@ def get_err_buffer_hist1( h, flows=False ):
     return buf
 ##end def get_err_buffer_hist1
 
-def get_buffer_hist2( h, flows=False, mask=None ):
+def get_buffer_hist2( h, **kwargs ):
     """Return histogram data buffer
     if flows=False, exclude underflow and overflow
     if mask=0.0 than bins with 0.0 content will be white, but not colored
@@ -156,18 +227,22 @@ def get_buffer_hist2( h, flows=False, mask=None ):
     from numpy import frombuffer, dtype
     nx, ny = h.GetNbinsX(), h.GetNbinsY()
     buf = h.GetArray()
-    buf = frombuffer( buf, dtype( buf.typecode ), (nx+2)*(ny+2) ).reshape( ( ny+2, nx+2 ) )
+    res = frombuffer( buf, dtype( buf.typecode ), (nx+2)*(ny+2) ).reshape( ( ny+2, nx+2 ) )
+    if not kwargs.pop( 'flows', False ):
+        res = res[1:ny+1,1:nx+1]
+
+    if kwargs.pop( 'asmatrix', False ):
+        res = numpy.matrix( res )
+
+    mask = kwargs.pop( 'mask', None )
     if not mask is None:
         from numpy import ma
-        buf = ma.array( buf, mask = buf==mask )
-    ##end if not mask is None
-    if flows: return buf
+        res = ma.array( buf, mask = buf==mask )
 
-    buf = buf[1:ny+1,1:nx+1]
-    return buf
+    return res
 ##end def get_buffer_hist
 
-def get_err_buffer_hist2( h, flows=False ):
+def get_err_buffer_hist2( h, **kwargs ):
     """Return histogram error buffer
     if flows=False, exclude underflow and overflow
     if mask=0.0 than bins with 0.0 content will be white, but not colored
@@ -178,9 +253,15 @@ def get_err_buffer_hist2( h, flows=False ):
     from numpy import frombuffer, dtype
     nx, ny = h.GetNbinsX(), h.GetNbinsY()
     buf = sw2.GetArray()
-    buf = frombuffer( buf, dtype( buf.typecode ), (nx+2)*(ny+2) ).reshape( ( ny+2, nx+2 ) )
-    if flows: return buf
-    return buf[1:ny+1,1:nx+1]
+    res = frombuffer( buf, dtype( buf.typecode ), (nx+2)*(ny+2) ).reshape( ( ny+2, nx+2 ) )
+
+    if not kwargs.pop( 'flows', False ):
+        res = res[1:ny+1,1:nx+1]
+
+    if kwargs.pop( 'asmatrix', False ):
+        res = numpy.matrix( res )
+
+    return res
 ##end def get_buffer_hist
 
 def get_buffer_histN( h, flows=False, mask=None, err=False ):
@@ -319,7 +400,9 @@ def bind_functions():
     setattr( ROOT.TGraph2D, 'get_buffers', get_buffers_graph2d )
     setattr( ROOT.TGraph2D, 'get_buffers_mat', get_buffers_mat_graph2d )
 
-    setattr( ROOT.TH1, 'convert', convert_hist1 )
+    setattr( ROOT.TH1, 'convert',  convert_hist1 )
+    setattr( ROOT.TH1, 'truncate', truncate_hist1 )
+    setattr( ROOT.TH1, 'unrebin', unrebin_hist1 )
     setattr( ROOT.TH1, 'get_buffer', get_buffer_hist1 )
     setattr( ROOT.TH1, 'get_err_buffer', get_err_buffer_hist1 )
 
