@@ -252,7 +252,7 @@ def plot_table( text, *args, **kwargs ):
             fmt = linefmt
             linefmt = lambda *a: fmt.format( *a )
         lines = []
-        lst = [linefmt(*line) if type(line) is list else linefmt(line) for line in text]
+        lst = [linefmt(*line) if isinstance(line, (list,tuple)) else linefmt(line) for line in text]
         text = sep.join( lst )
 
     header, footer = kwargs.pop( 'header', None ), kwargs.pop( 'footer', None )
